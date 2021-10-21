@@ -11,27 +11,25 @@
 # for more details.
 
 """Pythonic simple SOAP Server implementation"""
-
-
 from __future__ import unicode_literals
-import sys
-if sys.version > '3':
-    unicode = str
-
-
 import datetime
 import sys
 import logging
 import warnings
 import re
 import traceback
+
+from . import __author__, __copyright__, __license__, __version__
+from .simplexml import SimpleXMLElement, TYPE_MAP, Date, Decimal
+
+if sys.version > '3':
+    unicode = str
+
 try:
     from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 except ImportError:
     from http.server import BaseHTTPRequestHandler, HTTPServer
 
-from . import __author__, __copyright__, __license__, __version__
-from .simplexml import SimpleXMLElement, TYPE_MAP, Date, Decimal
 
 log = logging.getLogger(__name__)
 
@@ -125,7 +123,7 @@ class SoapDispatcher(object):
     def response_element_name(self, method):
         return '%sResponse' % method
 
-    def dispatch(self, xml, action=None, fault=None):
+    def dispatch(self, xml: str, action=None, fault=None):
         """Receive and process SOAP call, returns the xml"""
         # a dict can be sent in fault to expose it to the caller
         # default values:
@@ -206,14 +204,11 @@ class SoapDispatcher(object):
             import sys
             etype, evalue, etb = sys.exc_info()
             log.error(traceback.format_exc())
-            if self.debug:
-                detail = u''.join(traceback.format_exception(etype, evalue, etb))
-                detail += u'\n\nXML REQUEST\n\n' + xml.decode('UTF-8')
-            else:
-                detail = None
-            fault.update({'faultcode': "%s.%s" % (soap_fault_code, etype.__name__),
-                     'faultstring': evalue,
-                     'detail': detail})
+            fault.update({
+                'faultcode': "%s.%s" % (soap_fault_code, etype.__name__),
+                'faultstring': evalue,
+                'detail': None}
+            )
 
         # build response message
         if not prefix:
@@ -266,7 +261,7 @@ class SoapDispatcher(object):
                     types_ok = all([k in returns_types for k in ret.keys()])
                     if not types_ok:
                         warnings.warn("Return value doesn't match type structure: "
-                                     "%s vs %s" % (str(returns_types), str(ret)))
+                                      "%s vs %s" % (str(returns_types), str(ret)))
                 if not complex_type or not types_ok:
                     # backward compatibility for scalar and simple types
                     res.marshall(list(returns_types.keys())[0], ret, )
@@ -529,7 +524,7 @@ class WSGISOAPHandler(object):
     def do_post(self, environ, start_response):
         length = int(environ['CONTENT_LENGTH'])
         request = environ['wsgi.input'].read(length)
-        response = self.dispatcher.dispatch(request)
+        response = self.dispatcher.dispatch(request.decode('utf-8'))
         start_response('200 OK', [('Content-Type', 'text/xml'), ('Content-Length', str(len(response)))])
         return [response]
 
@@ -608,7 +603,7 @@ if __name__ == "__main__":
         result = response.AddResult
         log.info(int(result.ab))
         log.info(str(result.dd))
-        
+
     if '--consume-wsdl' in sys.argv:
         from .client import SoapClient
         client = SoapClient(
@@ -621,4 +616,3 @@ if __name__ == "__main__":
         result = response['AddResult']
         log.info(int(result['ab']))
         log.info(str(result['dd']))
-
