@@ -117,8 +117,11 @@ class SoapDispatcher(object):
             xml = xml.replace('/>', ' ' + _ns_str + '/>')
         return xml
 
-    def register_function(self, name, fn, returns=None, args=None, doc=None):
-        self.methods[name] = fn, returns, args, doc or getattr(fn, "__doc__", "")
+    def register_function(self, name, fn, returns=None, args=None, doc=None, soap_header: bool = False):
+        """
+        :param soap_header: Pass (raw) soap header to function
+        """
+        self.methods[name] = fn, returns, args, doc or getattr(fn, "__doc__", ""), soap_header
 
     def response_element_name(self, method):
         return '%sResponse' % method
@@ -177,7 +180,7 @@ class SoapDispatcher(object):
                 prefix = method.get_prefix()
 
             log.debug('dispatch method: %s', name)
-            function, returns_types, args_types, doc = self.methods[name]
+            function, returns_types, args_types, doc, pass_soap_header = self.methods[name]
             log.debug('returns_types %s', returns_types)
 
             # de-serialize parameters (if type definitions given)
@@ -188,7 +191,13 @@ class SoapDispatcher(object):
             else:
                 args = {}  # no parameters
 
+            # get soap header if function wants it
+            if pass_soap_header:
+                soap_header = request('Header', ns=soap_uri)
+                args['soap_header'] = soap_header
+
             soap_fault_code = 'Server'
+
             # execute function
             ret = function(**args)
             log.debug('dispathed method returns: %s', ret)
