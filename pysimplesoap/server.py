@@ -39,7 +39,7 @@ NS_RX = re.compile(r'xmlns:(\w+)="(.+?)"')
 
 class SoapFault(Exception):
     def __init__(self, faultcode=None, faultstring=None, detail=None):
-        self.faultcode = faultcode or self.__class__.__name__
+        self.faultcode = faultcode or f'Server.{self.__class__.__name__}'
         self.faultstring = faultstring or ''
         self.detail = detail
 
@@ -166,8 +166,6 @@ class SoapDispatcher(object):
                 if v in self.namespaces.values():
                     _ns_reversed[v] = k
 
-            soap_fault_code = 'Client'
-
             # parse request message and get local method
             method = request('Body', ns=soap_uri).children()(0)
             if action:
@@ -196,15 +194,13 @@ class SoapDispatcher(object):
                 soap_header = request('Header', ns=soap_uri)
                 args['soap_header'] = soap_header
 
-            soap_fault_code = 'Server'
-
             # execute function
             ret = function(**args)
             log.debug('dispathed method returns: %s', ret)
 
         except SoapFault as e:
             fault.update({
-                'faultcode': "%s.%s" % (soap_fault_code, e.faultcode),
+                'faultcode': e.faultcode,
                 'faultstring': e.faultstring,
                 'detail': e.detail
             })
@@ -214,7 +210,7 @@ class SoapDispatcher(object):
             etype, evalue, etb = sys.exc_info()
             log.error(traceback.format_exc())
             fault.update({
-                'faultcode': "%s.%s" % (soap_fault_code, etype.__name__),
+                'faultcode': f'Server.{etype.__name__}',
                 'faultstring': evalue,
                 'detail': None}
             )
