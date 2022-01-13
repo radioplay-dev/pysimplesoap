@@ -19,8 +19,8 @@ import warnings
 import re
 import traceback
 
-from . import __author__, __copyright__, __license__, __version__
-from .simplexml import SimpleXMLElement, TYPE_MAP, Date, Decimal
+from .simplexml import SimpleXMLElement, TYPE_MAP
+from .helpers import Date, Decimal
 
 if sys.version > '3':
     unicode = str
@@ -135,7 +135,7 @@ class SoapDispatcher(object):
         if fault is None:
             fault = {}
         soap_ns, soap_uri = self.soap_ns, self.soap_uri
-        soap_fault_code = 'VersionMismatch'
+        # soap_fault_code = 'VersionMismatch'
         name = None
 
         # namespaces = [('model', 'http://model.common.mt.moboperator'), ('external', 'http://external.mt.moboperator')]
@@ -426,11 +426,11 @@ class SoapDispatcher(object):
             soapop['soapAction'] = self.action + method
             soapop['style'] = 'document'
             input = op.add_child("wsdl:input")
-            ##input.add_attribute('name', "%sInput" % method)
+            # input.add_attribute('name', "%sInput" % method)
             soapbody = input.add_child("soap:body")
             soapbody["use"] = "literal"
             output = op.add_child("wsdl:output")
-            ##output.add_attribute('name', "%sOutput" % method)
+            # output.add_attribute('name', "%sOutput" % method)
             soapbody = output.add_child("soap:body")
             soapbody["use"] = "literal"
 

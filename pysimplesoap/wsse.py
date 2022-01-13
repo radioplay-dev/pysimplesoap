@@ -12,30 +12,21 @@
 
 """Pythonic simple SOAP Client plugins for WebService Security extensions"""
 
-
-from __future__ import unicode_literals
-import sys
-if sys.version > '3':
-    basestring = unicode = str
-
 import datetime
-from decimal import Decimal
-import os
-import logging
-import hashlib
 import warnings
 
-from . import __author__, __copyright__, __license__, __version__
 from .simplexml import SimpleXMLElement
 
 import random
 import string
 from hashlib import sha1
 
+
 def randombytes(N):
     return ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(N))
 
 # Namespaces:
+
 
 WSSE_URI = 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd'
 WSU_URI = "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"
@@ -67,12 +58,13 @@ class UsernameToken:
         # convert the token to xml
         header.marshall(k, self.token, ns=False, add_children_ns=False)
         header(k)['xmlns:wsse'] = WSSE_URI
-        #<wsse:UsernameToken xmlns:wsu='http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd'>
+        # <wsse:UsernameToken xmlns:wsu='http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd'>
 
     def postprocess(self, client, response, method, args, kwargs, headers, soap_uri):
         "Analyze incoming credentials"
         # TODO: add some password validation callback?
         pass
+
 
 class UsernameDigestToken(UsernameToken):
     """
@@ -124,13 +116,14 @@ BIN_TOKEN_TMPL = """<?xml version="1.0" encoding="UTF-8"?>
 </wsse:Security>
 """
 
+
 class BinaryTokenSignature:
     "WebService Security extension to add a basic signature to xml request"
 
     def __init__(self, certificate="", private_key="", password=None, cacert=None):
         # read the X509v3 certificate (PEM)
         self.certificate = ''.join([line for line in open(certificate)
-                                         if not line.startswith("---")])
+                                    if not line.startswith("---")])
         self.private_key = private_key
         self.password = password
         self.cacert = cacert
@@ -151,7 +144,7 @@ class BinaryTokenSignature:
         ref_xml = repr(body)
         # sign using RSA-SHA1 (XML Security)
         from . import xmlsec
-        vars = xmlsec.rsa_sign(ref_xml, "#id-14", 
+        vars = xmlsec.rsa_sign(ref_xml, "#id-14",
                                self.private_key, self.password)
         vars['certificate'] = self.certificate
         # generate the xml (filling the placeholders)
@@ -185,9 +178,9 @@ class BinaryTokenSignature:
         signature_value = signature("SignatureValue", ns=XMLDSIG_URI)
         # TODO: these sanity checks should be moved to xmlsec?
         self.__check(signed_info("Reference", ns=XMLDSIG_URI)['URI'], "#" + ref_uri)
-        self.__check(signed_info("SignatureMethod", ns=XMLDSIG_URI)['Algorithm'], 
+        self.__check(signed_info("SignatureMethod", ns=XMLDSIG_URI)['Algorithm'],
                      XMLDSIG_URI + "rsa-sha1")
-        self.__check(signed_info("Reference", ns=XMLDSIG_URI)("DigestMethod", ns=XMLDSIG_URI)['Algorithm'], 
+        self.__check(signed_info("Reference", ns=XMLDSIG_URI)("DigestMethod", ns=XMLDSIG_URI)['Algorithm'],
                      XMLDSIG_URI + "sha1")
         # TODO: check KeyInfo uses the correct SecurityTokenReference
         # workaround: copy namespaces so lxml can parse the xml to be signed
@@ -197,7 +190,7 @@ class BinaryTokenSignature:
         # use the internal tag xml representation (not the full xml document)
         ref_xml = xmlsec.canonicalize(repr(body))
         # verify the signed hash
-        computed_hash =  xmlsec.sha1_hash_digest(ref_xml)
+        computed_hash = xmlsec.sha1_hash_digest(ref_xml)
         digest_value = str(signed_info("Reference", ns=XMLDSIG_URI)("DigestValue", ns=XMLDSIG_URI))
         if computed_hash != digest_value:
             raise RuntimeError("WSSE SHA1 hash digests mismatch")
@@ -209,7 +202,7 @@ class BinaryTokenSignature:
         if not ok:
             raise RuntimeError("WSSE RSA-SHA1 signature verification failed")
         # TODO: remove any unsigned part from the xml?
-        
+
     def __check(self, value, expected, msg="WSSE sanity check failed"):
         if value != expected:
             raise RuntimeError(msg)

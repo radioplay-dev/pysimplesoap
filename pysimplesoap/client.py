@@ -28,16 +28,18 @@ import os
 import tempfile
 import warnings
 
-from . import __author__, __copyright__, __license__, __version__, TIMEOUT
-from .simplexml import SimpleXMLElement, TYPE_MAP, REVERSE_TYPE_MAP, Struct
-from .transport import get_http_wrapper, set_http_wrapper, get_Http
+from . import __version__, TIMEOUT
+from .simplexml import SimpleXMLElement, TYPE_MAP, REVERSE_TYPE_MAP
+from .transport import get_Http
 # Utility functions used throughout wsdl_parse, moved aside for readability
-from .helpers import Alias, fetch, sort_dict, make_key, process_element, \
-                     postprocess_element, get_message, preprocess_schema, \
-                     get_local_name, get_namespace_prefix, TYPE_MAP, urlsplit
+from .helpers import (
+    Alias, fetch, sort_dict, make_key, postprocess_element, get_message, preprocess_schema,
+    get_local_name, get_namespace_prefix, urlsplit, Struct
+)
 from .wsse import UsernameToken
 
 log = logging.getLogger(__name__)
+
 
 class SoapFault(RuntimeError):
     def __init__(self, faultcode, faultstring, detail=None):
@@ -145,7 +147,6 @@ class SoapClient(object):
             if hasattr(self.http, 'add_certificate'):
                 self.http.add_certificate(key=key_file, cert=cert, domain='')
 
-
         # namespace prefix, None to use xmlns attribute or False to not use it:
         self.__ns = ns
         if not ns:
@@ -183,7 +184,7 @@ class SoapClient(object):
         SimpleXMLElement object, then these headers will be inserted into the
         request.
         """
-        #TODO: method != input_message
+        # TODO: method != input_message
         # Basic SOAP request:
         soap_uri = soap_namespaces[self.__soap_ns]
         xml = self.__xml % dict(method=method,              # method tag name
@@ -191,9 +192,7 @@ class SoapClient(object):
                                 ns=self.__ns,               # method ns prefix
                                 soap_ns=self.__soap_ns,     # soap prefix & uri
                                 soap_uri=soap_uri)
-        request = SimpleXMLElement(xml, namespace=self.__ns and self.namespace,
-                                        prefix=self.__ns)
-
+        request = SimpleXMLElement(xml, namespace=self.__ns and self.namespace, prefix=self.__ns)
         request_headers = kwargs.pop('headers', None)
 
         # serialize parameters
@@ -233,8 +232,8 @@ class SoapClient(object):
         if self.__call_headers:
             header = request('Header', ns=list(soap_namespaces.values()),)
             for k, v in self.__call_headers.items():
-                ##if not self.__ns:
-                ##    header['xmlns']
+                # if not self.__ns:
+                #   header['xmlns']
                 if isinstance(v, SimpleXMLElement):
                     # allows a SimpleXMLElement to be constructed and inserted
                     # rather than a dictionary. marshall doesn't allow ns: prefixes
@@ -249,8 +248,7 @@ class SoapClient(object):
 
         # do pre-processing using plugins (i.e. WSSE signing)
         for plugin in self.plugins:
-            plugin.preprocess(self, request, method, args, kwargs,
-                                    self.__headers, soap_uri)
+            plugin.preprocess(self, request, method, args, kwargs, self.__headers, soap_uri)
 
         self.xml_request = request.as_xml()
         self.xml_response = self.send(method, self.xml_request)
@@ -264,8 +262,8 @@ class SoapClient(object):
                 if self.services is not None:
                     operation = self.get_operation(method)
                     fault_name = detailXml.children()[0].get_name()
-                    # if fault not defined in WSDL, it could be an axis or other 
-                    # standard type (i.e. "hostname"), try to convert it to string 
+                    # if fault not defined in WSDL, it could be an axis or other
+                    # standard type (i.e. "hostname"), try to convert it to string
                     fault = operation['faults'].get(fault_name) or unicode
                     detail = detailXml.children()[0].unmarshall(fault, strict=False)
                 else:
@@ -277,14 +275,14 @@ class SoapClient(object):
 
         # do post-processing using plugins (i.e. WSSE signature verification)
         for plugin in self.plugins:
-            plugin.postprocess(self, response, method, args, kwargs,
-                                     self.__headers, soap_uri)
+            plugin.postprocess(self, response, method, args, kwargs, self.__headers, soap_uri)
 
         return response
 
     def send(self, method, xml):
         """Send SOAP request using HTTP"""
-        if self.location == 'test': return
+        if self.location == 'test':
+            return
         # location = '%s' % self.location #?op=%s" % (self.location, method)
         http_method = str('POST')
         location = str(self.location)
@@ -422,8 +420,8 @@ class SoapClient(object):
             else:
                 # use the message (element) name
                 method = inputname
-        #elif not input:
-            #TODO: no message! (see wsmtxca.dummy)
+        # elif not input:
+            # TODO: no message! (see wsmtxca.dummy)
         else:
             params = kwargs and kwargs.items()
 
@@ -448,15 +446,23 @@ class SoapClient(object):
             struct = unicode        # fix for py2 vs py3 string handling
 
         if not isinstance(struct, (list, dict, tuple)) and struct in TYPE_MAP.keys():
-            if not type(value) == struct  and value is not None:
+            if not type(value) == struct and value is not None:
                 try:
                     struct(value)       # attempt to cast input to parameter type
-                except:
+                except Exception:
                     valid = False
-                    errors.append('Type mismatch for argument value. parameter(%s): %s, value(%s): %s' % (type(struct), struct, type(value), value))
+                    errors.append(
+                        'Type mismatch for argument value. parameter(%s): %s, value(%s): %s' % (
+                            type(struct),
+                            struct,
+                            type(value),
+                            value
+                        )
+                    )
 
         elif isinstance(struct, list) and len(struct) == 1 and not isinstance(value, list):
-            # parameter can have a dict in a list: [{}] indicating a list is allowed, but not needed if only one argument.
+            # parameter can have a dict in a list: [{}] indicating a list is allowed, but not needed if only one
+            # argument.
             next_valid, next_errors, next_warnings = self.wsdl_validate_params(struct[0], value)
             if not next_valid:
                 valid = False
@@ -469,7 +475,9 @@ class SoapClient(object):
                 for key in value:
                     if key not in struct:
                         valid = False
-                        errors.append('Argument key %s not in parameter. parameter: %s, args: %s' % (key, struct, value))
+                        errors.append(
+                            'Argument key %s not in parameter. parameter: %s, args: %s' % (key, struct, value)
+                        )
                     else:
                         next_valid, next_errors, next_warnings = self.wsdl_validate_params(struct[key], value[key])
                         if not next_valid:
@@ -496,7 +504,9 @@ class SoapClient(object):
                 warnings.extend(next_warnings)
         elif not typematch:
             valid = False
-            errors.append('Type mismatch. parameter(%s): %s, value(%s): %s' % (type(struct), struct, type(value), value))
+            errors.append(
+                'Type mismatch. parameter(%s): %s, value(%s): %s' % (type(struct), struct, type(value), value)
+            )
 
         return (valid, errors, warnings)
 
@@ -679,7 +689,7 @@ class SoapClient(object):
                 if operation_node('output', error=False):
                     op['output_msg'] = get_local_name(operation_node.output['message'])
 
-                #Get all fault message types this operation may return
+                # Get all fault message types this operation may return
                 fault_msgs = op['fault_msgs'] = {}
                 faults = operation_node('fault', error=False)
                 if faults is not None:
@@ -738,7 +748,7 @@ class SoapClient(object):
                         if hdr:
                             headers.update(hdr)
                         else:
-                            pass # not enough info to search the header message:
+                            pass  # not enough info to search the header message:
                     op['input'] = get_message(messages, op['input_msg'], parts_input_body, op['parameter_order'])
                     op['header'] = headers
 
@@ -746,7 +756,7 @@ class SoapClient(object):
                         element = list(op['input'].values())[0]
                         ns_uri = element.namespaces[None]
                         qualified = element.qualified
-                    except (AttributeError, KeyError) as e:
+                    except (AttributeError, KeyError):
                         # TODO: fix if no parameters parsed or "variants"
                         ns_uri = op['namespace']
                         qualified = None
@@ -785,9 +795,6 @@ class SoapClient(object):
                     hdr = {'message': header['message'], 'part': header['part']}
                     parts_output_headers.append(hdr)
 
-
-
-
         for service in wsdl("service", error=False) or []:
             service_name = service['name']
             if not service_name:
@@ -799,8 +806,8 @@ class SoapClient(object):
             for port in service.port:
                 binding_name = get_local_name(port['binding'])
 
-                if not binding_name in bindings:
-                    continue    # unknown binding
+                if binding_name not in bindings:
+                    continue  # unknown binding
 
                 binding = ports[port['name']] = copy.deepcopy(bindings[binding_name])
                 address = port('address', ns=list(soap_uris.values()), error=False)
@@ -818,12 +825,13 @@ class SoapClient(object):
         # create an default service if none is given in the wsdl:
         if not services:
             services[''] = {'ports': {'': None}}
-   
-        elements = list(e for e in elements.values() if type(e) is type) + sorted(e for e in elements.values() if not(type(e) is type))
+
+        elements = list(e for e in elements.values() if type(e) is type) + sorted(e for e in elements.values() if not (type(e) is type))
         e = None
         self.elements = []
         for element in elements:
-            if e!= element: self.elements.append(element)
+            if e != element:
+                self.elements.append(element)
             e = element
 
         return services
@@ -837,7 +845,7 @@ class SoapClient(object):
         if cache:
             # make md5 hash of the url for caching...
             filename_pkl = '%s.pkl' % hashlib.md5(url).hexdigest()
-            if isinstance(cache, basestring):
+            if isinstance(cache, str):
                 filename_pkl = os.path.join(cache, filename_pkl)
             if os.path.exists(filename_pkl):
                 log.debug('Unpickle file %s' % (filename_pkl, ))
@@ -862,7 +870,7 @@ class SoapClient(object):
         services = self._xml_tree_to_services(wsdl, cache, force_download)
 
         # dump the full service/port/operation map
-        #log.debug(pprint.pformat(services))
+        # log.debug(pprint.pformat(services))
 
         # Save parsed wsdl (cache)
         if cache:
@@ -898,7 +906,7 @@ class SoapClient(object):
                 e = e.__name__
             elif isinstance(e, Alias):
                 e = e.xml_type
-            elif isinstance(e, Struct) and e.key[1]=='element':
+            elif isinstance(e, Struct) and e.key[1] == 'element':
                 e = repr(e)
             else:
                 continue
@@ -908,7 +916,10 @@ class SoapClient(object):
             ports = self.services[service]['ports']
             for port in ports:
                 port = ports[port]
-                if port['soap_ver'] == None: continue
+
+                if port['soap_ver'] is None:
+                    continue
+
                 s += '\n   PORT (%s)' % port['name']
                 s += '\n    Location: %s' % port['location']
                 s += '\n    Soap ver: %s' % port['soap_ver']
@@ -921,7 +932,7 @@ class SoapClient(object):
                     input = input and input.values() and list(input.values())[0]
                     input_str = ''
                     if isinstance(input, dict):
-                        if 'parameters' not in input or input['parameters']!=None:
+                        if 'parameters' not in input or input['parameters'] is not None:
                             for k, v in input.items():
                                 if isinstance(v, type):
                                     v = v.__name__
@@ -940,6 +951,7 @@ class SoapClient(object):
                     s += '\n      > %s' % output
 
         return s
+
 
 def parse_proxy(proxy_str):
     """Parses proxy address user:pass@host:port into a dict suitable for httplib2"""

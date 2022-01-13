@@ -15,20 +15,12 @@
 
 from __future__ import unicode_literals
 import sys
-if sys.version > '3':
-    basestring = str
-    unicode = str
-
 import logging
 import re
-import time
 import xml.dom.minidom
 
-from . import __author__, __copyright__, __license__, __version__
-
 # Utility functions used for marshalling, moved aside for readability
-from .helpers import TYPE_MAP, TYPE_MARSHAL_FN, TYPE_UNMARSHAL_FN, \
-                     REVERSE_TYPE_MAP, Struct, Date, Decimal
+from .helpers import TYPE_MAP, TYPE_MARSHAL_FN, TYPE_UNMARSHAL_FN, REVERSE_TYPE_MAP
 
 log = logging.getLogger(__name__)
 
@@ -44,9 +36,11 @@ class SimpleXMLElement(object):
         """
         self.__namespaces_map = namespaces_map
         _rx = "|".join(namespaces_map.keys())  # {'external': 'ext', 'model': 'mod'} -> 'external|model'
-        self.__ns_rx = re.compile(r"^(%s):.*$" % _rx)  # And now we build an expression ^(external|model):.*$
-                                                       # to find prefixes in all xml nodes i.e.: <model:code>1</model:code>
-                                                       # and later change that to <mod:code>1</mod:code>
+
+        # And now we build an expression ^(external|model):.*$
+        # to find prefixes in all xml nodes i.e.: <model:code>1</model:code>
+        # and later change that to <mod:code>1</mod:code>
+        self.__ns_rx = re.compile(r"^(%s):.*$" % _rx)
         self.__ns = namespace
         self.__prefix = prefix
         self.__jetty = jetty                           # special list support
@@ -54,7 +48,7 @@ class SimpleXMLElement(object):
         if text is not None:
             try:
                 self.__document = xml.dom.minidom.parseString(text)
-            except:
+            except Exception():
                 log.error(text)
                 raise
             self.__elements = [self.__document.documentElement]
@@ -65,11 +59,11 @@ class SimpleXMLElement(object):
     def add_child(self, name, text=None, ns=True):
         """Adding a child tag to a node"""
         if not ns or self.__ns is False:
-            ##log.debug('adding %s without namespace', name)
+            # log.debug('adding %s without namespace', name)
             element = self.__document.createElement(name)
         else:
-            ##log.debug('adding %s ns "%s" %s', name, self.__ns, ns)
-            if isinstance(ns, basestring):
+            # log.debug('adding %s ns "%s" %s', name, self.__ns, ns)
+            if isinstance(ns, str):
                 element = self.__document.createElement(name)
                 if ns:
                     element.setAttribute("xmlns", ns)
@@ -98,7 +92,7 @@ class SimpleXMLElement(object):
         if tag.startswith("_"):
             object.__setattr__(self, tag, text)
         else:
-            ##log.debug('__setattr__(%s, %s)', tag, text)
+            # log.debug('__setattr__(%s, %s)', tag, text)
             self.add_child(tag, text)
 
     def __delattr__(self, tag):
@@ -153,13 +147,13 @@ class SimpleXMLElement(object):
 
     def attributes(self):
         """Return a dict of attributes for this tag"""
-        #TODO: use slice syntax [:]?
+        # TODO: use slice syntax [:]?
         return self._element.attributes
 
     def __getitem__(self, item):
         """Return xml tag attribute value or a slice of attributes (iter)"""
-        ##log.debug('__getitem__(%s)', item)
-        if isinstance(item, basestring):
+        # log.debug('__getitem__(%s)', item)
+        if isinstance(item, str):
             if self._element.hasAttribute(item):
                 return self._element.attributes[item].value
         elif isinstance(item, slice):
@@ -183,7 +177,7 @@ class SimpleXMLElement(object):
 
     def __setitem__(self, item, value):
         """Set an attribute value"""
-        if isinstance(item, basestring):
+        if isinstance(item, str):
             self.add_attribute(item, value)
         elif isinstance(item, slice):
             # set multiple attributes at once
@@ -220,18 +214,18 @@ class SimpleXMLElement(object):
                 elements = [self.__elements[tag]]
             if ns and not elements:
                 for ns_uri in isinstance(ns, (tuple, list)) and ns or (ns, ):
-                    ##log.debug('searching %s by ns=%s', tag, ns_uri)
+                    # log.debug('searching %s by ns=%s', tag, ns_uri)
                     elements = self._element.getElementsByTagNameNS(ns_uri, tag)
                     if elements:
                         break
             if self.__ns and not elements:
-                ##log.debug('searching %s by ns=%s', tag, self.__ns)
+                # log.debug('searching %s by ns=%s', tag, self.__ns)
                 elements = self._element.getElementsByTagNameNS(self.__ns, tag)
             if not elements:
-                ##log.debug('searching %s', tag)
+                # log.debug('searching %s', tag)
                 elements = self._element.getElementsByTagName(tag)
             if not elements:
-                ##log.debug(self._element.toxml())
+                # log.debug(self._element.toxml())
                 if error:
                     raise AttributeError("No elements found")
                 else:
@@ -261,7 +255,7 @@ class SimpleXMLElement(object):
                     prefix=self.__prefix,
                     jetty=self.__jetty,
                     namespaces_map=self.__namespaces_map)
-        except:
+        except Exception():
             raise
 
     def __dir__(self):
@@ -276,7 +270,7 @@ class SimpleXMLElement(object):
                     if __element.nodeType == __element.ELEMENT_NODE]
         if not elements:
             return None
-            #raise IndexError("Tag %s has no children" % self._element.tagName)
+            # raise IndexError("Tag %s has no children" % self._element.tagName)
         return SimpleXMLElement(
             elements=elements,
             document=self.__document,
@@ -316,13 +310,13 @@ class SimpleXMLElement(object):
         """Returns the float value of the current element"""
         try:
             return float(self.__str__())
-        except:
+        except Exception():
             raise IndexError(self._element.toxml())
 
     _element = property(lambda self: self.__elements[0])
 
     def unmarshall(self, types, strict=True):
-        #import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
 
         """Convert to python values the current serialized xml element"""
         # types is a dict of {tag name: conversion function}
@@ -348,25 +342,25 @@ class SimpleXMLElement(object):
                     fn = types[name]
                     # custom array only in the response (not defined in the WSDL):
                     # <results soapenc:arrayType="xsd:string[199]>
-                    if any([k for k,v in node[:] if 'arrayType' in k]) and not isinstance(fn, list):
+                    if any([k for k, v in node[:] if 'arrayType' in k]) and not isinstance(fn, list):
                         fn = [fn]
                 else:
                     fn = types
-            except (KeyError, ) as e:
+            except KeyError:
                 xmlns = node['xmlns'] or node.get_namespace_uri(node.get_prefix())
                 if 'xsi:type' in node.attributes().keys():
                     xsd_type = node['xsi:type'].split(":")[1]
                     try:
                         # get fn type from SOAP-ENC:arrayType="xsd:string[28]"
                         if xsd_type == 'Array':
-                            array_type = [k for k,v in node[:] if 'arrayType' in k][0]
+                            array_type = [k for k, v in node[:] if 'arrayType' in k][0]
                             xsd_type = node[array_type].split(":")[1]
                             if "[" in xsd_type:
                                 xsd_type = xsd_type[:xsd_type.index("[")]
                             fn = [REVERSE_TYPE_MAP[xsd_type]]
                         else:
                             fn = REVERSE_TYPE_MAP[xsd_type]
-                    except:
+                    except Exception:
                         fn = None  # ignore multirefs!
                 elif xmlns == "http://www.w3.org/2001/XMLSchema":
                     # self-defined schema, return the SimpleXMLElement
@@ -389,14 +383,14 @@ class SimpleXMLElement(object):
                 # have multiple occurrences:
                 children = node.children() or node
                 # TODO: check if this was really needed (get first child only)
-                ##if len(fn[0]) == 1 and children:
-                ##    children = children()
+                # if len(fn[0]) == 1 and children:
+                #     children = children()
                 if fn and not isinstance(fn[0], dict):
                     # simple arrays []
                     for child in (children or []):
                         tmp_dict = child.unmarshall(fn[0], strict)
                         value.extend(tmp_dict.values())
-                #elif (self.__jetty and len(fn[0]) > 1):
+                # elif (self.__jetty and len(fn[0]) > 1):
                 elif (len(fn[0]) > 1):
                     # Jetty and now all dialects use array style support [{k, v}]
                     for parent in node:
@@ -430,23 +424,23 @@ class SimpleXMLElement(object):
                     value = tuple(value)
 
             elif isinstance(fn, dict):
-                ##if ref_name_type is not None:
-                ##    fn = fn[ref_name_type]
+                # if ref_name_type is not None:
+                #     fn = fn[ref_name_type]
                 children = node.children()
                 value = children and children.unmarshall(fn, strict)
             else:
                 if fn is None:  # xsd:anyType not unmarshalled
                     value = node
-                elif unicode(node) or (fn == str and unicode(node) != ''):
+                elif str(node) or (fn == str and str(node) != ''):
                     try:
                         # get special deserialization function (if any)
                         fn = TYPE_UNMARSHAL_FN.get(fn, fn)
                         if fn == str:
                             # always return an unicode object:
                             # (avoid encoding errors in py<3!)
-                            value = unicode(node)
+                            value = str(node)
                         else:
-                            value = fn(unicode(node))
+                            value = fn(str(node))
                     except (ValueError, TypeError) as e:
                         raise ValueError("Tag: %s: %s" % (name, e))
                 else:
@@ -491,7 +485,7 @@ class SimpleXMLElement(object):
                 ns = False
             for k, v in value:
                 getattr(self, name).marshall(k, v, add_comments=add_comments, ns=ns)
-        elif isinstance(value, list): # serialize lists name: [value1, value2]
+        elif isinstance(value, list):  # serialize lists name: [value1, value2]
             # list elements should be a dict with one element:
             # 'vats': [{'vat': {'vat_amount': 50, 'vat_percent': 5}}, {...}]
             # or an array of complex types directly (a.k.a. jetty dialect)
@@ -507,7 +501,7 @@ class SimpleXMLElement(object):
                 # TODO: this could be an issue for some arrays of single values
                 if isinstance(t, dict) and len(t) > 1 and i < len(value) - 1:
                     child = self.add_child(name, ns=ns)
-        elif isinstance(value, (xml.dom.minidom.CDATASection, basestring)):  # do not convert strings or unicodes
+        elif isinstance(value, (xml.dom.minidom.CDATASection, str)):  # do not convert strings or unicodes
             self.add_child(name, value, ns=ns)
         elif value is None:  # sent a empty tag?
             self.add_child(name, ns=ns)

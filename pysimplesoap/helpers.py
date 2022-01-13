@@ -13,11 +13,6 @@
 """Pythonic simple SOAP Client helpers"""
 
 
-from __future__ import unicode_literals
-import sys
-if sys.version > '3':
-    basestring = unicode = str
-
 import datetime
 from decimal import Decimal
 import os
@@ -32,8 +27,6 @@ except ImportError:
     from urllib import request as urllib2
     from urllib.parse import urlsplit
 
-from . import __author__, __copyright__, __license__, __version__
-
 
 log = logging.getLogger(__name__)
 
@@ -43,7 +36,7 @@ def fetch(url, http, cache=False, force_download=False, wsdl_basedir='', headers
 
     # check / append a valid schema if not given:
     url_scheme, netloc, path, query, fragment = urlsplit(url)
-    if not url_scheme in ('http', 'https', 'file'):
+    if url_scheme not in ('http', 'https', 'file'):
         for scheme in ('http', 'https', 'file'):
             try:
                 path = os.path.normpath(os.path.join(wsdl_basedir, url))
@@ -59,7 +52,7 @@ def fetch(url, http, cache=False, force_download=False, wsdl_basedir='', headers
 
     # make md5 hash of the url for caching...
     filename = '%s.xml' % hashlib.md5(url.encode('utf8')).hexdigest()
-    if isinstance(cache, basestring):
+    if isinstance(cache, str):
         filename = os.path.join(cache, filename)
     if cache and os.path.exists(filename) and not force_download:
         log.info('Reading file %s' % filename)
@@ -224,7 +217,7 @@ def process_element(elements, element_name, node, element_type, xsd_uri,
                 if ns:
                     fn_namespace = uri       # use the specified namespace
                 else:
-                    fn_namespace = namespace # use parent namespace (default)
+                    fn_namespace = namespace  # use parent namespace (default)
                 for k, v in e[:]:
                     if k.startswith("xmlns:"):
                         # get the namespace uri from the element
@@ -247,8 +240,8 @@ def process_element(elements, element_name, node, element_type, xsd_uri,
                     else:
                         # .NET style now matches Jetty style
                         # {'ClassName': [{'attr1': val1, 'attr2': val2}]
-                        #fn.array = True
-                        #struct.array = True
+                        # fn.array = True
+                        # struct.array = True
                         fn = [fn]
                 else:
                     if len(children) > 1 or dialect in ('jetty',):
@@ -290,7 +283,7 @@ def process_element(elements, element_name, node, element_type, xsd_uri,
 
 def postprocess_element(elements, processed):
     """Fix unresolved references"""
-    #elements variable contains all eelements and complexTypes defined in http://www.w3.org/2001/XMLSchema
+    # elements variable contains all eelements and complexTypes defined in http://www.w3.org/2001/XMLSchema
 
     # (elements referenced before its definition, thanks .net)
     # avoid already processed elements:
@@ -304,22 +297,23 @@ def postprocess_element(elements, processed):
                 try:
                     postprocess_element(v, processed)
                 except RuntimeError as e:  # maximum recursion depth exceeded
-                    warnings.warn(unicode(e), RuntimeWarning)
+                    warnings.warn(str(e), RuntimeWarning)
             if v.refers_to:  # extension base?
                 if isinstance(v.refers_to, dict):
                     extend_element(v, v.refers_to)
                     # clean the reference:
                     v.refers_to = None
                 else:  # "alias", just replace
-                    ##log.debug('Replacing %s = %s' % (k, v.refers_to))
+                    # log.debug('Replacing %s = %s' % (k, v.refers_to))
                     elements[k] = v.refers_to
             if v.array:
                 elements[k] = [v]  # convert arrays to python lists
         if isinstance(v, list):
             for n in v:  # recurse list
                 if isinstance(n, (Struct, list)):
-                    #if n != elements:  # TODO: fix recursive elements
+                    # if n != elements:  # TODO: fix recursive elements
                     postprocess_element(n, processed)
+
 
 def extend_element(element, base):
     ''' Recursively extend the elemnet if it has an extension base.'''
@@ -336,6 +330,7 @@ def extend_element(element, base):
         if base.refers_to:
             extend_element(element, base.refers_to)
 
+
 def get_message(messages, message_name, part_name, parameter_order=None):
     if part_name:
         # get the specific part of the message:
@@ -346,7 +341,7 @@ def get_message(messages, message_name, part_name, parameter_order=None):
         for (message_name_key, part_name_key), message in messages.items():
             if message_name_key == message_name:
                 parts[part_name_key] = message
-        if len(parts)>1:
+        if len(parts) > 1:
             # merge (sorted by parameter_order for rpc style)
             new_msg = None
             for part_name_key in parameter_order:
@@ -360,8 +355,7 @@ def get_message(messages, message_name, part_name, parameter_order=None):
             return new_msg
         elif parts:
             return list(parts.values())[0]
-            #return parts.values()[0]
-
+            # return parts.values()[0]
 
 
 get_local_name = lambda s: s and str((':' in s) and s.split(':')[1] or s)
@@ -419,8 +413,8 @@ def preprocess_schema(schema, imported_schemas, elements, xsd_uri, dialect,
 
         element_type = element.get_local_name()
         if element_type in ('element', 'complexType', "simpleType"):
-            namespace = local_namespaces[None]          # get targetNamespace
-            element_ns = global_namespaces[ns]          # get the prefix
+            namespace = local_namespaces[None]  # get targetNamespace
+            element_ns = global_namespaces[ns]  # get the prefix
             element_name = element['name']
             log.debug("Parsing Element %s: %s" % (element_type, element_name))
             if element.get_local_name() == 'complexType':
@@ -443,11 +437,7 @@ def preprocess_schema(schema, imported_schemas, elements, xsd_uri, dialect,
 
 
 # simplexml utilities:
-
-try:
-    _strptime = datetime.datetime.strptime
-except AttributeError:  # python2.4
-    _strptime = lambda s, fmt: datetime.datetime(*(time.strptime(s, fmt)[:6]))
+_strptime = datetime.datetime.strptime
 
 
 # Functions to serialize/deserialize special immutable types:
@@ -482,7 +472,7 @@ def datetime_u(s):
             # parse microseconds
             try:
                 return _strptime(s, fmt + ".%f")
-            except:
+            except Exception:
                 return _strptime(s, fmt)
         except ValueError:
             # strip microseconds (not supported in this platform)
@@ -502,6 +492,7 @@ bool_m = lambda s: {False: 'false', True: 'true'}[s]
 decimal_m = lambda d: '{0:f}'.format(d)
 float_m = lambda f: '{0:.10f}'.format(f)
 
+
 # aliases:
 class Alias(object):
     def __init__(self, py_type, xml_type):
@@ -515,18 +506,22 @@ class Alias(object):
 
     def __eq__(self, other):
         return isinstance(other, Alias) and self.xml_type == other.xml_type
-        
+
     def __ne__(self, other):
         return not self.__eq__(other)
 
     def __gt__(self, other):
-        if isinstance(other, Alias): return self.xml_type > other.xml_type
-        if isinstance(other, Struct): return False
+        if isinstance(other, Alias):
+            return self.xml_type > other.xml_type
+        if isinstance(other, Struct):
+            return False
         return True
 
     def __lt__(self, other):
-        if isinstance(other, Alias): return self.xml_type < other.xml_type
-        if isinstance(other, Struct): return True
+        if isinstance(other, Alias):
+            return self.xml_type < other.xml_type
+        if isinstance(other, Struct):
+            return True
         return False
 
     def __ge__(self, other):
@@ -538,8 +533,8 @@ class Alias(object):
     def __hash__(self):
         return hash(self.xml_type)
 
-if sys.version > '3':
-    long = Alias(int, 'long')
+
+long = Alias(int, 'long')
 byte = Alias(str, 'byte')
 short = Alias(int, 'short')
 double = Alias(float, 'double')
@@ -552,7 +547,7 @@ any_uri = Alias(str, 'anyURI')
 
 # Define conversion function (python type): xml schema type
 TYPE_MAP = {
-    unicode: 'string',
+    str: 'string',
     bool: 'boolean',
     short: 'short',
     byte: 'byte',
@@ -581,7 +576,7 @@ TYPE_UNMARSHAL_FN = {
     datetime.date: date_u,
     datetime.time: time_u,
     bool: bool_u,
-    str: unicode,
+    str: str,
 }
 
 REVERSE_TYPE_MAP = dict([(v, k) for k, v in TYPE_MAP.items()])
@@ -657,17 +652,19 @@ class Struct(dict):
         return new
 
     def __eq__(self, other):
-        return isinstance(other, Struct) and self.key == other.key and self.key != None
+        return isinstance(other, Struct) and self.key == other.key and self.key is not None
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
     def __gt__(self, other):
-        if isinstance(other, Struct): return (self.key[2], self.key[0], self.key[1]) > (other.key[2], other.key[0], other.key[1])
+        if isinstance(other, Struct):
+            return (self.key[2], self.key[0], self.key[1]) > (other.key[2], other.key[0], other.key[1])
         return True
 
     def __lt__(self, other):
-        if isinstance(other, Struct): return (self.key[2], self.key[0], self.key[1]) < (other.key[2], other.key[0], other.key[1])
+        if isinstance(other, Struct):
+            return (self.key[2], self.key[0], self.key[1]) < (other.key[2], other.key[0], other.key[1])
         return False
 
     def __ge__(self, other):
@@ -683,7 +680,8 @@ class Struct(dict):
         return "%s" % dict.__str__(self)
 
     def __repr__(self):
-        if not self.key: return str(self.keys())
+        if not self.key:
+            return str(self.keys())
         s = '%s' % self.key[0]
         if self.keys():
             s += ' {'
